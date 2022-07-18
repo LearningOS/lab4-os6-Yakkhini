@@ -35,16 +35,19 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
     let task = current_task().unwrap();
     let inner = task.inner_exclusive_access();
     if fd >= inner.fd_table.len() {
+        debug!("Invalid length.");
         return -1;
     }
     if let Some(file) = &inner.fd_table[fd] {
         let file = file.clone();
         // release current task TCB manually to avoid multi-borrow
         drop(inner);
+        debug!("Read Start: token {}, buf {}, len {}.", token, buf as usize, len);
         file.read(
             UserBuffer::new(translated_byte_buffer(token, buf, len))
         ) as isize
     } else {
+        debug!("None value.");
         -1
     }
 }
