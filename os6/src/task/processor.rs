@@ -4,12 +4,12 @@
 //! the current running state of CPU is recorded,
 //! and the replacement and transfer of control flow of different applications are executed.
 
-
 use super::__switch;
 use super::{fetch_task, TaskStatus};
 use super::{TaskContext, TaskControlBlock};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
+use crate::{config, mm};
 use alloc::sync::Arc;
 use lazy_static::*;
 
@@ -102,4 +102,107 @@ pub fn schedule(switched_task_cx_ptr: *mut TaskContext) {
     unsafe {
         __switch(switched_task_cx_ptr, idle_task_cx_ptr);
     }
+}
+
+/// mmap function
+pub fn mmap(start: usize, len: usize, port: usize) -> isize {
+    if (start % config::PAGE_SIZE != 0) || (port & !0x7 != 0) || (port & 0x7 == 0) {
+        return -1;
+    }
+
+    let start_address = mm::VirtAddr(start);
+    let end_address = mm::VirtAddr(start + len);
+
+    let map_permission =
+        mm::MapPermission::from_bits((port as u8) << 1).unwrap() | mm::MapPermission::U;
+
+    for vpn in mm::VPNRange::new(mm::VirtPageNum::from(start_address), end_address.ceil()) {
+        if let Some(pte) = take_current_task()
+            .unwrap()
+            .inner_exclusive_access()
+            .memory_set
+            .translate(vpn)
+        {
+            if pte.is_valid() {
+                return -1;
+            }
+        };
+    }
+
+    take_current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .memory_set
+        .insert_framed_area(start_address, end_address, map_permission);
+
+    for vpn in mm::VPNRange::new(mm::VirtPageNum::from(start_address), end_address.ceil()) {
+        match take_current_task()
+            .unwrap()
+            .inner_exclusive_access()
+            .memory_set
+            .translate(vpn)
+        {
+            Some(pte) => {
+                if pte.is_valid() == false {
+                    return -1;
+                }
+            }
+            None => {
+                return -1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+/// munmap function
+pub fn munmap(start: usize, len: usize) -> isize {
+        if start % config::PAGE_SIZE != 0 {
+        return -1;
+    }
+
+    let start_address = mm::VirtAddr(start);
+    let end_address = mm::VirtAddr(start + len);
+
+    for vpn in mm::VPNRange::new(mm::VirtPageNum::from(start_address), end_address.ceil()) {
+        match current_task()
+            .unwrap()
+            .inner_exclusive_access()
+            .memory_set
+            .translate(vpn)
+        {
+            Some(pte) => {
+                if pte.is_valid() {
+                    return -1;
+                }
+            }
+            None => {
+                return -1;
+            }
+        }
+    }
+
+    for vpn in mm::VPNRange::new(mm::VirtPageNum::from(start_address), end_address.ceil()) {
+        current_task()
+            .unwrap()
+            .inner_exclusive_access()
+            .memory_set
+            .remove_area_with_start_vpn(vpn);
+    }
+
+    for vpn in mm::VPNRange::new(mm::VirtPageNum::from(start_address), end_address.ceil()) {
+        if let Some(pte) = current_task()
+            .unwrap()
+            .inner_exclusive_access()
+            .memory_set
+            .translate(vpn)
+        {
+            if pte.is_valid() {
+                return -1;
+            }
+        };
+    }
+
+    return 0;
 }

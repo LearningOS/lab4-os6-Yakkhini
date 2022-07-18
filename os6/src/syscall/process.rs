@@ -2,10 +2,10 @@
 
 use crate::config::MAX_SYSCALL_NUM;
 use crate::fs::{open_file, OpenFlags};
-use crate::mm::{translated_ref, translated_refmut, translated_str, self};
+use crate::mm::{self, translated_ref, translated_refmut, translated_str};
 use crate::task::{
-    add_task, current_task, current_user_token, exit_current_and_run_next,
-    suspend_current_and_run_next, TaskStatus, self,
+    self, add_task, current_task, current_user_token, exit_current_and_run_next,
+    suspend_current_and_run_next, TaskStatus,
 };
 use crate::timer::get_time_us;
 use alloc::string::String;
@@ -109,9 +109,9 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
 }
 
 // YOUR JOB: 引入虚地址后重写 sys_get_time
-pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
+pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
     let us = get_time_us();
-    let ts_physic_address = mm::translated_refmut(task::current_user_token(), us);
+    let ts_physic_address = mm::translated_refmut(task::current_user_token(), ts);
 
     *ts_physic_address = TimeVal {
         sec: us / 1_000_000,
@@ -132,12 +132,12 @@ pub fn sys_set_priority(_prio: isize) -> isize {
 }
 
 // YOUR JOB: 扩展内核以实现 sys_mmap 和 sys_munmap
-pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    -1
+pub fn sys_mmap(start: usize, len: usize, port: usize) -> isize {
+    task::mmap(start, len, port)
 }
 
-pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    -1
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    task::munmap(start, len)
 }
 
 //
