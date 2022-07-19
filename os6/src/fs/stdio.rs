@@ -1,5 +1,5 @@
 use super::File;
-use crate::mm::{UserBuffer};
+use crate::mm::UserBuffer;
 use crate::sbi::console_getchar;
 use crate::task::suspend_current_and_run_next;
 
@@ -17,6 +17,7 @@ impl File for Stdin {
         let mut c: usize;
         loop {
             c = console_getchar();
+            debug!("In fs module, stdio, stdin, read c: {}", c);
             if c == 0 {
                 suspend_current_and_run_next();
                 continue;
@@ -25,6 +26,7 @@ impl File for Stdin {
             }
         }
         let ch = c as u8;
+        debug!("In fs module, stdio, stdin, read ch: {}", ch);
         unsafe { user_buf.buffers[0].as_mut_ptr().write_volatile(ch); }
         1
     }
@@ -41,8 +43,10 @@ impl File for Stdout {
     }
     fn write(&self, user_buf: UserBuffer) -> usize {
         for buffer in user_buf.buffers.iter() {
+            debug!("In fs module, stdio, stdin, write buffer: {}", buffer[0]);
             print!("{}", core::str::from_utf8(*buffer).unwrap());
         }
+        debug!("Buffer len: {}", user_buf.len());
         user_buf.len()
     }
 }

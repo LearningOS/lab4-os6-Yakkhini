@@ -214,6 +214,60 @@ impl TaskControlBlock {
         // ---- release parent PCB automatically
         // **** release children PCB automatically
     }
+
+    pub fn spawn(self: &Arc<TaskControlBlock>, elf_data: &[u8]) -> Arc<TaskControlBlock> {
+        let mut parent_inner = self.inner_exclusive_access();
+        // copy user space(include trap context)
+        let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
+        let trap_cx_ppn = memory_set
+            .translate(VirtAddr::from(TRAP_CONTEXT).into())
+            .unwrap()
+            .ppn();
+        // alloc a pid and a kernel stack in kernel space
+        let pid_handle = pid_alloc();
+        let kernel_stack = KernelStack::new(&pid_handle);
+        let kernel_stack_top = kernel_stack.get_top();
+        let task_control_block = Arc::new(TaskControlBlock {
+            pid: pid_handle,
+            kernel_stack,
+            inner: unsafe {
+                UPSafeCell::new(TaskControlBlockInner {
+                    trap_cx_ppn,
+                    base_size: user_sp,
+                    task_cx: TaskContext::goto_trap_return(kernel_stack_top),
+                    task_status: TaskStatus::Ready,
+                    memory_set,
+                    parent: Some(Arc::downgrade(self)),
+                    children: Vec::new(),
+                    exit_code: 0,
+                    fd_table: alloc::vec![
+                        // 0 -> stdin
+                        Some(Arc::new(Stdin)),
+                        // 1 -> stdout
+                        Some(Arc::new(Stdout)),
+                        // 2 -> stderr
+                        Some(Arc::new(Stdout)),
+                    ],
+                })
+            },
+        });
+        // add child
+        parent_inner.children.push(task_control_block.clone());
+        // modify kernel_sp in trap_cx
+        // **** access children PCB exclusively
+
+        // prepare TrapContext in user space
+        let trap_cx = task_control_block.inner_exclusive_access().get_trap_cx();
+        *trap_cx = TrapContext::app_init_context(
+            entry_point,
+            user_sp,
+            KERNEL_SPACE.exclusive_access().token(),
+            kernel_stack_top,
+            trap_handler as usize,
+        );
+        task_control_block
+    }
+
     pub fn getpid(&self) -> usize {
         self.pid.0
     }
@@ -222,6 +276,7 @@ impl TaskControlBlock {
 #[derive(Copy, Clone, PartialEq)]
 /// task status: UnInit, Ready, Running, Exited
 pub enum TaskStatus {
+    #[allow(unused)]
     UnInit,
     Ready,
     Running,

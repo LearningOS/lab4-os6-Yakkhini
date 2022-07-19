@@ -30,7 +30,7 @@ use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
 
 pub use context::TaskContext;
-pub use manager::add_task;
+pub use manager::{add_task, spawn};
 pub use pid::{pid_alloc, KernelStack, PidHandle};
 pub use processor::{
     current_task, current_trap_cx, current_user_token, mmap, munmap, run_tasks, schedule,
@@ -96,7 +96,7 @@ lazy_static! {
     /// the name "initproc" may be changed to any other app name like "usertests",
     /// but we have user_shell, so we don't need to change it.
     pub static ref INITPROC: Arc<TaskControlBlock> = Arc::new({
-        let inode = open_file("ch6b_user_shell", OpenFlags::RDONLY).unwrap();
+        let inode = open_file("ch6b_initproc", OpenFlags::RDONLY).unwrap();
         let v = inode.read_all();
         TaskControlBlock::new(v.as_slice())
     });

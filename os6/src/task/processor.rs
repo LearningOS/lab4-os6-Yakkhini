@@ -106,6 +106,9 @@ pub fn schedule(switched_task_cx_ptr: *mut TaskContext) {
 
 /// mmap function
 pub fn mmap(start: usize, len: usize, port: usize) -> isize {
+
+    debug!("Get into mmap function.");
+
     if (start % config::PAGE_SIZE != 0) || (port & !0x7 != 0) || (port & 0x7 == 0) {
         return -1;
     }
@@ -117,6 +120,8 @@ pub fn mmap(start: usize, len: usize, port: usize) -> isize {
         mm::MapPermission::from_bits((port as u8) << 1).unwrap() | mm::MapPermission::U;
 
     for vpn in mm::VPNRange::new(mm::VirtPageNum::from(start_address), end_address.ceil()) {
+        println!("[debug] The vpn is in range. current: {}", usize::from(vpn));
+        debug!("The vpn is in range. current: {}", usize::from(vpn));
         if let Some(pte) = take_current_task()
             .unwrap()
             .inner_exclusive_access()

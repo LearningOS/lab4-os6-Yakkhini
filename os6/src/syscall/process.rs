@@ -1,7 +1,7 @@
 //! Process management syscalls
 
 use crate::config::MAX_SYSCALL_NUM;
-use crate::fs::{open_file, OpenFlags};
+use crate::fs::{open_file, OpenFlags, self};
 use crate::mm::{self, translated_ref, translated_refmut, translated_str};
 use crate::task::{
     self, add_task, current_task, current_user_token, exit_current_and_run_next,
@@ -143,6 +143,15 @@ pub fn sys_munmap(start: usize, len: usize) -> isize {
 //
 // YOUR JOB: 实现 sys_spawn 系统调用
 // ALERT: 注意在实现 SPAWN 时不需要复制父进程地址空间，SPAWN != FORK + EXEC
-pub fn sys_spawn(_path: *const u8) -> isize {
-    -1
+pub fn sys_spawn(path: *const u8) -> isize {
+    let token = task::current_user_token();
+    let app_name = mm::translated_str(token, path);
+    let raw_node = fs::open_file(&app_name, fs::OpenFlags::RDONLY);
+
+    if let Some(inode) = raw_node {
+        let data = inode.read_all();
+        return task::spawn(&data);
+    } else {
+        return -1;
+    }
 }

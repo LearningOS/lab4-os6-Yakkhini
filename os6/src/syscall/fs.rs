@@ -43,12 +43,14 @@ pub fn sys_read(fd: usize, buf: *const u8, len: usize) -> isize {
         // release current task TCB manually to avoid multi-borrow
         drop(inner);
         debug!("Read Start: token {}, buf {}, len {}.", token, buf as usize, len);
-        file.read(
+        let answer = file.read(
             UserBuffer::new(translated_byte_buffer(token, buf, len))
-        ) as isize
+        ) as isize;
+        debug!("Read function result is: {}", answer);
+        return answer;
     } else {
         debug!("None value.");
-        -1
+        return -1;
     }
 }
 

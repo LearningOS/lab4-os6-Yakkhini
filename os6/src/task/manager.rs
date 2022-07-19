@@ -4,7 +4,7 @@
 //! Other CPU process monitoring functions are in Processor.
 
 
-use super::TaskControlBlock;
+use super::{TaskControlBlock, current_task};
 use crate::sync::UPSafeCell;
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
@@ -44,4 +44,14 @@ pub fn add_task(task: Arc<TaskControlBlock>) {
 
 pub fn fetch_task() -> Option<Arc<TaskControlBlock>> {
     TASK_MANAGER.exclusive_access().fetch()
+}
+
+/// Spawn a new task
+pub fn spawn(data:&[u8]) -> isize {
+    let current_task = current_task().unwrap();
+    let task = current_task.spawn(data);
+    let id = task.pid.0 as isize;
+    add_task(task);
+
+    return id;
 }
