@@ -75,6 +75,17 @@ impl Inode {
         }
         None
     }
+    /// Find inode id by name
+    pub fn find_inode_id_by_name(&self, name: &str) -> Option<u32> {
+        let fs = self.fs.lock();
+        self.read_disk_inode(|disk_inode| {
+            self.find_inode_id(name, disk_inode)
+            .map(|inode_id| {
+                inode_id
+            })
+        })
+    }
+    
     /// Find inode under current inode by name
     pub fn find(&self, name: &str) -> Option<Arc<Inode>> {
         let fs = self.fs.lock();
@@ -155,6 +166,44 @@ impl Inode {
             self.fs.clone(),
             self.block_device.clone(),
         )))
+        // release efs lock automatically by compiler
+    }
+    /// Create inode under current inode by name
+    pub fn create_link(&self, inode_id: u32, name: &str) -> isize {
+        let mut fs = self.fs.lock();
+        if self.modify_disk_inode(|root_inode| {
+            // assert it is a directory
+            assert!(root_inode.is_dir());
+            // has the file been created?
+            self.find_inode_id(name, root_inode)
+        }).is_some() {
+            return -1;
+        }
+        // initialize inode
+        let (new_inode_block_id, new_inode_block_offset) 
+            = fs.get_disk_inode_pos(inode_id);
+        get_block_cache(
+            new_inode_block_id as usize,
+            Arc::clone(&self.block_device)
+        ).lock().modify(new_inode_block_offset, |new_inode: &mut DiskInode| {
+            new_inode.initialize(DiskInodeType::File);
+        });
+        self.modify_disk_inode(|root_inode| {
+            // append file in the dirent
+            let file_count = (root_inode.size as usize) / DIRENT_SZ;
+            let new_size = (file_count + 1) * DIRENT_SZ;
+            // increase size
+            self.increase_size(new_size as u32, root_inode, &mut fs);
+            // write dirent
+            let dirent = DirEntry::new(name, inode_id);
+            root_inode.write_at(
+                file_count * DIRENT_SZ,
+                dirent.as_bytes(),
+                &self.block_device,
+            );
+        });
+
+        return 0;
         // release efs lock automatically by compiler
     }
     /// List inodes under current inode

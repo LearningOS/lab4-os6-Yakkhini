@@ -41,3 +41,11 @@ bitflags! {
 
 pub use stdio::{Stdin, Stdout};
 pub use inode::{OSInode, open_file, OpenFlags, list_apps};
+
+pub fn linkat(old_name: &str, new_name: &str) -> isize {
+    if let Some(inode_id) = inode::ROOT_INODE.find_inode_id_by_name(old_name as &str) {
+        inode::ROOT_INODE.create_link(inode_id, new_name)
+    } else {
+        return -1;
+    }
+}
