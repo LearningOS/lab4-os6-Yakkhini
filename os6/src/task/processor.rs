@@ -106,7 +106,6 @@ pub fn schedule(switched_task_cx_ptr: *mut TaskContext) {
 
 /// mmap function
 pub fn mmap(start: usize, len: usize, port: usize) -> isize {
-
     debug!("Get into mmap function.");
 
     if (start % config::PAGE_SIZE != 0) || (port & !0x7 != 0) || (port & 0x7 == 0) {
@@ -122,7 +121,7 @@ pub fn mmap(start: usize, len: usize, port: usize) -> isize {
     for vpn in mm::VPNRange::new(mm::VirtPageNum::from(start_address), end_address.ceil()) {
         println!("[debug] The vpn is in range. current: {}", usize::from(vpn));
         debug!("The vpn is in range. current: {}", usize::from(vpn));
-        if let Some(pte) = take_current_task()
+        if let Some(pte) = current_task()
             .unwrap()
             .inner_exclusive_access()
             .memory_set
@@ -134,14 +133,14 @@ pub fn mmap(start: usize, len: usize, port: usize) -> isize {
         };
     }
 
-    take_current_task()
+    current_task()
         .unwrap()
         .inner_exclusive_access()
         .memory_set
         .insert_framed_area(start_address, end_address, map_permission);
 
     for vpn in mm::VPNRange::new(mm::VirtPageNum::from(start_address), end_address.ceil()) {
-        match take_current_task()
+        match current_task()
             .unwrap()
             .inner_exclusive_access()
             .memory_set
@@ -163,7 +162,7 @@ pub fn mmap(start: usize, len: usize, port: usize) -> isize {
 
 /// munmap function
 pub fn munmap(start: usize, len: usize) -> isize {
-        if start % config::PAGE_SIZE != 0 {
+    if start % config::PAGE_SIZE != 0 {
         return -1;
     }
 
@@ -171,18 +170,13 @@ pub fn munmap(start: usize, len: usize) -> isize {
     let end_address = mm::VirtAddr(start + len);
 
     for vpn in mm::VPNRange::new(mm::VirtPageNum::from(start_address), end_address.ceil()) {
-        match current_task()
+        if let Some(pte) = current_task()
             .unwrap()
             .inner_exclusive_access()
             .memory_set
             .translate(vpn)
         {
-            Some(pte) => {
-                if pte.is_valid() {
-                    return -1;
-                }
-            }
-            None => {
+            if pte.is_valid() == false {
                 return -1;
             }
         }
