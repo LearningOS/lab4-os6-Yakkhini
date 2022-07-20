@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "run_os6",
+      "setup": "",
+      "run": "make test6",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 100,
+      "points": 100
+    }
+  ]
+}

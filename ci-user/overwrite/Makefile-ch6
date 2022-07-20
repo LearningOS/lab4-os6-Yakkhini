@@ -20,7 +20,7 @@ clean:
 	cargo clean
 
 run: kernel
-	timeout --foreground 30s qemu-system-riscv64 \
+	qemu-system-riscv64 \
 		-machine virt \
 		-nographic \
 		-bios $(BOOTLOADER) \
