@@ -33,6 +33,9 @@ impl File for Stdin {
     fn write(&self, _user_buf: UserBuffer) -> usize {
         panic!("Cannot write to stdin!");
     }
+    fn fstat(&self) -> (u64, super::StatMode, u32) {
+        panic!("Cannot get file status to stdin!");
+    }
 }
 
 impl File for Stdout {
@@ -48,5 +51,8 @@ impl File for Stdout {
         }
         debug!("Buffer len: {}", user_buf.len());
         user_buf.len()
+    }
+    fn fstat(&self) -> (u64, super::StatMode, u32) {
+        panic!("Cannot get file status to stdout!");
     }
 }
