@@ -51,3 +51,7 @@ pub fn linkat(old_name: &str, new_name: &str) -> isize {
         return -1;
     }
 }
+
+pub fn unlinkat(name: &str) -> isize {
+    inode::ROOT_INODE.remove(name)
+}

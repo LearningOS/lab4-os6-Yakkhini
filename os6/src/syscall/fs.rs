@@ -123,6 +123,10 @@ pub fn sys_linkat(old_name_ptr: *const u8, new_name_ptr: *const u8) -> isize {
     fs::linkat(&old_name, &new_name)
 }
 
-pub fn sys_unlinkat(_name: *const u8) -> isize {
-    -1
+pub fn sys_unlinkat(name_ptr: *const u8) -> isize {
+    let token = task::current_user_token();
+    let name = translated_str(token, name_ptr);
+
+    fs::unlinkat(&name)
+
 }

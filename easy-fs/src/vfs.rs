@@ -256,4 +256,28 @@ impl Inode {
         });
         block_cache_sync_all();
     }
+
+    /// remove the Dir layout
+    pub fn remove(&self, name: &str) -> isize {
+        self.modify_disk_inode(|root_inode| {
+            let file_count = (root_inode.size as usize) / DIRENT_SZ;
+            for i in 0..file_count {
+                let mut dirent = DirEntry::empty();
+                assert_eq!(
+                    root_inode.read_at(i * DIRENT_SZ, dirent.as_bytes_mut(), &self.block_device,),
+                    DIRENT_SZ,
+                );
+                if dirent.name() == name {
+                    let temp = DirEntry::empty();
+                    root_inode.write_at(
+                        DIRENT_SZ * i,
+                        temp.as_bytes(),
+                        &self.block_device,
+                    );
+                    return 0;
+                }
+            }
+            return -1;
+        })
+    }
 }
